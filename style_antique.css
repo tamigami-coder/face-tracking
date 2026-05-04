@@ -1,0 +1,235 @@
+:root {
+    --bg-color: #1a1512;
+    --accent-color: #d4af37; /* Gold */
+    --text-color: #e0d5c1;
+    --sepia-dark: #3e2723;
+    --sepia-light: #8d6e63;
+    --font-main: 'Roboto', sans-serif;
+    --font-title: 'Playfair Display', serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(46,33,27,1) 0%, rgba(26,21,18,1) 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 0.8s ease, visibility 0.8s;
+}
+
+.overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.content {
+    text-align: center;
+    max-width: 80%;
+}
+
+h1.title, h1.glitch {
+    font-family: var(--font-title);
+    font-size: 4rem;
+    color: var(--accent-color);
+    margin-bottom: 1rem;
+    letter-spacing: 0.2rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    margin-bottom: 2.5rem;
+    color: var(--sepia-light);
+    line-height: 1.6;
+}
+
+.mode-selection {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+
+.premium-btn {
+    background: var(--sepia-dark);
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: var(--font-title);
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.premium-btn:hover {
+    background: var(--accent-color);
+    color: var(--sepia-dark);
+    box-shadow: 0 0 20px var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.disclaimer {
+    margin-top: 2rem;
+    font-size: 0.8rem;
+    color: #555;
+}
+
+/* Loading Bar */
+.progress-bar {
+    width: 300px;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    margin: 20px auto;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+#progress-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s ease;
+}
+
+/* Game Layout */
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+#canvas-wrapper {
+    width: 100%;
+    height: 100%;
+}
+
+/* Padlock UI */
+#padlock-ui {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 30, 20, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid var(--accent-color);
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+}
+
+.dial-container {
+    display: flex;
+    gap: 15px;
+}
+
+.dial {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #111;
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 5px;
+}
+
+.dial-value {
+    font-family: var(--font-title);
+    font-size: 2.5rem;
+    color: var(--accent-color);
+    margin: 10px 0;
+    user-select: none;
+}
+
+.dial button {
+    background: none;
+    border: none;
+    color: var(--sepia-light);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.dial button:hover {
+    color: var(--accent-color);
+}
+
+/* Hint Button */
+#hint-btn {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--sepia-dark);
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 10;
+}
+
+#hint-display {
+    position: absolute;
+    bottom: 100px;
+    right: 40px;
+    background: rgba(0,0,0,0.8);
+    padding: 15px;
+    border-left: 4px solid var(--accent-color);
+    max-width: 250px;
+    font-size: 0.9rem;
+    color: #eee;
+}
+
+/* Guide Overlay */
+#guide-overlay {
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    text-align: center;
+}
+
+#guide-message {
+    font-size: 1.5rem;
+    color: var(--accent-color);
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    opacity: 0.8;
+}
+
+.fade-out {
+    animation: fadeOut 5s forwards;
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.hidden {
+    display: none !important;
+}
