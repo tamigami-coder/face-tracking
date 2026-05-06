@@ -14,11 +14,16 @@ class GameScene {
         this.lid = null;
         this.base = null;
         this.padlock = null;
-        this.shadow = null; // ステージ1の影
+        this.drawer = null;
+        this.bgDome = null; // 背景の投影用ドーム（プラネタリウム）
         
         // v2: ブラックライト
         this.blCanvas = document.getElementById('blacklight-canvas');
         this.blCtx = this.blCanvas.getContext('2d');
+        
+        this.originalTextures = {};
+        this.workingCanvases = {};
+        this.workingCtxs = {};
         
         this.init();
     }
@@ -54,6 +59,9 @@ class GameScene {
         this.createFloor();
 
         this.scene.add(this.boxGroup);
+        
+        // 背景ドーム作成
+        this.createBackgroundDome();
 
         window.addEventListener('resize', () => this.onWindowResize());
         this.onWindowResize(); // 初期サイズ設定
@@ -62,14 +70,23 @@ class GameScene {
     onWindowResize() {
         const w = window.innerWidth;
         const h = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
         
-        // ブラックライトキャンバスのサイズも同期
+        // ブラックライトキャンバスのサイズも同期し、DPRスケールを適用
         if (this.blCanvas) {
-            this.blCanvas.width = w;
-            this.blCanvas.height = h;
+            this.blCanvas.width = w * dpr;
+            this.blCanvas.height = h * dpr;
+            
+            // CSSサイズを画面サイズに固定
+            this.blCanvas.style.width = `${w}px`;
+            this.blCanvas.style.height = `${h}px`;
+            
+            // 変換マトリクスはリセットしておく（描画時に正確な物理ピクセルで計算するため）
+            this.blCtx.setTransform(1, 0, 0, 1, 0, 0);
         }
     }
 
@@ -86,19 +103,6 @@ class GameScene {
         floor.rotation.x = -Math.PI / 2;
         floor.position.y = -1.5;
         this.scene.add(floor);
-
-        // 影パズル用のテクスチャ付きプレーン
-        const shadowGeom = new THREE.PlaneGeometry(3, 3);
-        const shadowMat = new THREE.MeshBasicMaterial({ 
-            color: 0x000000,
-            transparent: true,
-            opacity: 0.3,
-            depthWrite: false
-        });
-        this.shadow = new THREE.Mesh(shadowGeom, shadowMat);
-        this.shadow.rotation.x = -Math.PI / 2;
-        this.shadow.position.set(1, -1.49, -1); // 箱の斜め後ろに配置
-        this.scene.add(this.shadow);
     }
 
     createBackgroundParticles() {
@@ -127,21 +131,35 @@ class GameScene {
      * 木箱の作成
      */
     createBox(textures) {
-        const loader = new THREE.CanvasTexture.prototype.constructor; // Utility to create textures from canvas
-        
-        const createMat = (canvas) => {
+        // キャッシュ（ブラックライトで動的に描画するため）
+        // 既存のテクスチャ（背景など）を保持したまま、木箱のテクスチャを追加
+        Object.assign(this.originalTextures, textures);
+        this.maskCanvas = null; // マスク用の一時キャンバスキャッシュ
+
+        const createMat = (faceName) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            // 初回描画
+            ctx.drawImage(this.originalTextures[faceName], 0, 0);
+            
+            this.workingCanvases[faceName] = canvas;
+            this.workingCtxs[faceName] = ctx;
+            
             const tex = new THREE.CanvasTexture(canvas);
             return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, metalness: 0.2 });
         };
 
         const mats = {
-            front: createMat(textures.front),
-            back: createMat(textures.back),
-            left: createMat(textures.left),
-            right: createMat(textures.right),
-            top: createMat(textures.top),
-            bottom: createMat(textures.bottom),
-            plain: createMat(textures.plain)
+            front: createMat('front'),
+            back: createMat('back'),
+            left: createMat('left'),
+            right: createMat('right'),
+            top: createMat('top'),
+            bottom: createMat('bottom'),
+            plain: new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain), roughness: 0.8, metalness: 0.2 })
         };
 
         // 本体 (5面)
@@ -150,7 +168,7 @@ class GameScene {
         const baseMaterials = [
             mats.right, // +X
             mats.left,  // -X
-            new THREE.MeshStandardMaterial({ color: 0x221105 }), // +Y (内側が見えるので暗く)
+            mats.top,   // +Y
             mats.bottom, // -Y
             mats.front, // +Z
             mats.back   // -Z
@@ -203,6 +221,43 @@ class GameScene {
     }
 
     /**
+     * 背景の投影用ドーム（プラネタリウム）を作成
+     */
+    createBackgroundDome() {
+        // 箱を完全に包み込む巨大な球体
+        const geometry = new THREE.SphereGeometry(15, 64, 32);
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+        
+        // 最初は真っ暗
+        ctx.fillStyle = '#050508'; // 漆黒に近い紺色
+        ctx.fillRect(0, 0, 1024, 1024);
+        
+        const tex = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.MeshStandardMaterial({ 
+            map: tex, 
+            side: THREE.BackSide, // 内側を描画
+            metalness: 0,
+            roughness: 1
+        });
+        
+        this.bgDome = new THREE.Mesh(geometry, mat);
+        this.scene.add(this.bgDome);
+        
+        // テクスチャ管理用の配列に追加
+        this.workingCanvases['bg'] = canvas;
+        this.workingCtxs['bg'] = ctx;
+        // 元データ（真っ暗な状態）を保存
+        const origCanvas = document.createElement('canvas');
+        origCanvas.width = origCanvas.height = 1024;
+        const oCtx = origCanvas.getContext('2d');
+        oCtx.fillStyle = '#050508';
+        oCtx.fillRect(0, 0, 1024, 1024);
+        this.originalTextures['bg'] = origCanvas;
+    }
+
+    /**
      * カメラ角度の更新
      * @param {number} yaw - 左右角度 (radian)
      * @param {number} pitch - 上下角度 (radian)
@@ -211,9 +266,8 @@ class GameScene {
         const radius = 5;
         // 球面座標系に変換
         // MediaPipeのYaw/Pitchをカメラの公転に変換
-        // 正面が(0,0,5)になるように調整
         this.camera.position.x = radius * Math.sin(yaw) * Math.cos(pitch);
-        this.camera.position.y = radius * Math.sin(pitch) + 1.0; // 1.5から1.0に下げて、初期状態で上面を見えなくする
+        this.camera.position.y = radius * Math.sin(pitch) + 1.0; 
         this.camera.position.z = radius * Math.cos(yaw) * Math.cos(pitch);
         this.camera.lookAt(0, 0, 0);
     }
@@ -249,50 +303,136 @@ class GameScene {
         }
     }
 
-
-    /**
-     * ステージ1: 影の形状と透明度を一致度に合わせて更新する
-     */
-    updateShadow(rate) {
-        if (!this.shadow) return;
-
-        // 一致度が高いほど、影を濃くし、形状（スケール）を正解に近づける
-        this.shadow.material.opacity = 0.2 + (rate * 0.4);
-        
-        // 正解に近づくほど、歪みが取れて「4」の比率になるような演出（擬似）
-        const scaleX = 1.0 + (1.0 - rate) * 1.5;
-        const scaleY = 1.0 + (1.0 - rate) * 0.5;
-        this.shadow.scale.set(scaleX, scaleY, 1);
-        
-        // 回転も少し歪ませる
-        this.shadow.rotation.z = (1.0 - rate) * 0.5;
-    }
-
     /**
      * ステージ2: ブラックライトのエフェクトを描画
      */
-    updateBlacklight(x, y) {
-        if (!this.blCtx) return;
+    updateBlacklight(clientX, clientY) {
+        if (!this.blCtx || !this.blCanvas) return;
+        
+        // CSS上の表示サイズと実際のキャンバスピクセルサイズの比率から正確な座標を計算
+        const rect = this.blCanvas.getBoundingClientRect();
+        const scaleX = this.blCanvas.width / rect.width;
+        const scaleY = this.blCanvas.height / rect.height;
+
+        const x = (clientX - rect.left) * scaleX;
+        const y = (clientY - rect.top) * scaleY;
+
+        // 光源のサイズもスケールに合わせる
+        const innerRadius = 20 * ((scaleX + scaleY) / 2);
+        const outerRadius = 180 * ((scaleX + scaleY) / 2);
+
         const ctx = this.blCtx;
         ctx.clearRect(0, 0, this.blCanvas.width, this.blCanvas.height);
         
         // 円形グラデーションでブラックライト（UV光）を表現
-        const grad = ctx.createRadialGradient(x, y, 20, x, y, 180);
+        const grad = ctx.createRadialGradient(x, y, innerRadius, x, y, outerRadius);
         grad.addColorStop(0, 'rgba(150, 0, 255, 0.5)'); // 中心は紫
         grad.addColorStop(0.5, 'rgba(100, 0, 200, 0.2)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)'); // 外側は透明
         
         ctx.save();
-        // 光が当たっている部分以外をわずかに暗くする（任意）
-        // ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        // ctx.fillRect(0, 0, this.blCanvas.width, this.blCanvas.height);
-        
         ctx.globalCompositeOperation = 'screen';
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(x, y, 180, 0, Math.PI * 2);
+        ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+    }
+
+    /**
+     * 魔法のライトの照射範囲を描画する
+     */
+    projectBlacklightOnFace(index, faceName, uv, digitCanvas, targetObject = null) {
+        const obj = targetObject || this.base;
+        if (!obj || !this.workingCtxs[faceName]) return;
+
+        const ctx = this.workingCtxs[faceName];
+        
+        // 1. ベーステクスチャを描画（前回の描画をリセット）
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(this.originalTextures[faceName], 0, 0);
+
+        // 2. UV座標からCanvas上の座標(px, py)を計算
+        const px = uv.x * 1024;
+        const py = (1.0 - uv.y) * 1024;
+
+        // 3. マスク用のオフスクリーンキャンバスを準備
+        if (!this.maskCanvas) {
+            this.maskCanvas = document.createElement('canvas');
+            this.maskCanvas.width = 1024;
+            this.maskCanvas.height = 1024;
+            this.maskCtx = this.maskCanvas.getContext('2d');
+        }
+        
+        const mCtx = this.maskCtx;
+        
+        // --- 演出A: 数字を浮かび上がらせる白い光（数字がある場合のみ） ---
+        if (digitCanvas) {
+            mCtx.clearRect(0, 0, 1024, 1024);
+            // 対象によって半径を切り替える (背景: 60, 箱: 200)
+            const radius = (faceName === 'bg') ? 60 : 200;
+            const grad = mCtx.createRadialGradient(px, py, 20, px, py, radius);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            
+            mCtx.globalCompositeOperation = 'source-over';
+            mCtx.fillStyle = grad;
+            mCtx.fillRect(px - radius, py - radius, radius * 2, radius * 2);
+
+            mCtx.globalCompositeOperation = 'source-in';
+            mCtx.drawImage(digitCanvas, 0, 0);
+
+            // 合成モードを source-over にして、明るい背景の上でも数字が見えるようにする
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(this.maskCanvas, 0, 0);
+        }
+
+        // --- 演出B: ブラックライト自体の紫色の光（常に表示） ---
+        // 対象によって半径を切り替える (背景: 100, 箱: 200)
+        const uvRadius = (faceName === 'bg') ? 100 : 200;
+        const uvGrad = ctx.createRadialGradient(px, py, 10, px, py, uvRadius);
+        uvGrad.addColorStop(0, 'rgba(120, 0, 255, 0.4)'); 
+        uvGrad.addColorStop(0.5, 'rgba(60, 0, 120, 0.15)');
+        uvGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = uvGrad;
+        ctx.beginPath();
+        ctx.arc(px, py, uvRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // マップの更新通知
+        if (targetObject) {
+            const mat = targetObject.material;
+            if (Array.isArray(mat)) {
+                if (mat[index] && mat[index].map) mat[index].map.needsUpdate = true;
+            } else {
+                if (mat.map) mat.map.needsUpdate = true;
+            }
+        } else {
+            this.base.material[index].map.needsUpdate = true;
+        }
+    }
+
+    /**
+     * マウスが外れた時などにテクスチャを元に戻す
+     */
+    resetFaceTexture(index, faceName, targetObject = null) {
+        if (!this.workingCtxs[faceName]) return;
+        const ctx = this.workingCtxs[faceName];
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(this.originalTextures[faceName], 0, 0);
+        
+        if (targetObject) {
+            const mat = targetObject.material;
+            if (Array.isArray(mat)) {
+                if (mat[index] && mat[index].map) mat[index].map.needsUpdate = true;
+            } else {
+                if (mat.map) mat.map.needsUpdate = true;
+            }
+        } else {
+            this.base.material[index].map.needsUpdate = true;
+        }
     }
 
     /**
@@ -329,6 +469,35 @@ class GameScene {
             originalMat, originalMat, originalMat,
             originalMat, mat, originalMat
         ];
+    }
+
+    /**
+     * 引き出しを開けるアニメーション
+     */
+    openDrawer() {
+        if (!this.drawer) return;
+        
+        // TWEENやGSAPがないため、シンプルな線形補間でアニメーション（本来はanimate内で管理すべきだが、まずは簡易的に）
+        let startZ = this.drawer.position.z;
+        let targetZ = 1.5; // 少し手前に出す
+        let startTime = Date.now();
+        let duration = 1000;
+
+        const animateOpen = () => {
+            let elapsed = Date.now() - startTime;
+            let progress = Math.min(elapsed / duration, 1);
+            
+            // イージング（outQuad）
+            let ease = progress * (2 - progress);
+            
+            this.drawer.position.z = startZ + (targetZ - startZ) * ease;
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateOpen);
+            }
+        };
+        
+        animateOpen();
     }
 
     /**
@@ -386,12 +555,6 @@ class GameScene {
         }
         this.scene.remove(pSystem);
         this.scene.remove(light);
-    }
-
-    onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
     render() {

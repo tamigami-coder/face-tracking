@@ -21,10 +21,6 @@ class UIController {
         this.stageCountLabel = document.querySelector('.stage-count');
         this.stageNameLabel = document.getElementById('stage-name');
         
-        // Feedback
-        this.matchRateFill = document.getElementById('match-rate-fill');
-        this.matchRateText = document.getElementById('match-rate-text');
-        
         // Elements
         this.loadingText = document.getElementById('loading-text');
         this.progressFill = document.getElementById('progress-fill');
@@ -56,17 +52,34 @@ class UIController {
 
         // 南京錠決定ボタン
         document.getElementById('unlock-btn').addEventListener('click', () => {
-            if (this.logic.checkSolution()) {
+            if (this.logic.checkSolution(this.state.currentStage)) {
                 this.onUnlock();
             } else {
-                alert("コードが正しくありません。");
+                this.showNotification("コードが正しくありません。", "error");
             }
         });
 
         // 記号決定ボタン
         document.getElementById('symbol-submit').addEventListener('click', () => {
-            alert("記号が一致しません。"); // ステージ3実装時にロジック追加
+            this.showNotification("記号が一致しません。", "error"); // ステージ3実装時にロジック追加
         });
+    }
+
+    /**
+     * カスタム通知を表示する
+     */
+    showNotification(message, type = 'info') {
+        const container = document.getElementById('notification-container');
+        const div = document.createElement('div');
+        div.className = `notification ${type}`;
+        div.innerText = message;
+        
+        container.appendChild(div);
+        
+        // アニメーションが終わったら削除
+        setTimeout(() => {
+            div.remove();
+        }, 5000);
     }
 
     updateLoading(progress, text) {
@@ -91,7 +104,7 @@ class UIController {
      * 現在のステージに合わせてパネルを切り替える
      */
     updateStageUI() {
-        this.stageCountLabel.innerText = `STAGE ${this.state.currentStage}/3`;
+        this.stageCountLabel.innerText = `STAGE ${this.state.currentStage}/2`;
         this.stageNameLabel.innerText = this.state.getStageName();
 
         // 全パネルを一旦非表示
@@ -99,25 +112,16 @@ class UIController {
 
         // 現在のステージのパネルを表示
         switch (this.state.currentStage) {
-            case STAGE.SHADOW:
-                document.getElementById('panel-shadow').classList.remove('hidden');
-                break;
             case STAGE.BLACKLIGHT:
                 document.getElementById('panel-padlock').classList.remove('hidden');
                 break;
             case STAGE.REVERSE:
                 document.getElementById('panel-symbols').classList.remove('hidden');
                 break;
+            case STAGE.DRAWER:
+                document.getElementById('panel-padlock').classList.remove('hidden');
+                break;
         }
-    }
-
-    /**
-     * ステージ1の一致度ゲージを更新
-     */
-    updateMatchRate(rate) {
-        const percent = Math.floor(rate * 100);
-        this.matchRateFill.style.width = `${percent}%`;
-        this.matchRateText.innerText = `${percent}%`;
     }
 
     showClear() {
@@ -131,29 +135,28 @@ class UIController {
         val = (val + delta + 10) % 10;
         span.innerText = val;
         this.logic.updateDigit(index, val);
-        
-        // 正解チェック
-        if (this.logic.checkSolution()) {
-            this.onUnlock();
-        }
     }
 
-    async showNextHint() {
-        if (this.state.hintLoading) return;
-        this.state.hintLoading = true;
+    showNextHint() {
+        if (this.hintDisplay.classList.contains('visible')) return;
         
-        this.hintText.innerText = "思案中...";
-        this.hintDisplay.classList.remove('hidden');
+        let hint = "";
+        // ステージに応じてヒントを切り替え
+        if (this.state.currentStage === STAGE.DRAWER) {
+            hint = "スマホで見たことあるような…？";
+        } else {
+            hint = "星は夜空にあるよね！";
+        }
 
-        const hint = await this.claude.generateHint(this.state.currentStage, this.state);
         this.hintText.innerText = hint;
-        
-        this.state.hintLoading = false;
-        
+        this.hintDisplay.classList.remove('hidden');
+        this.hintDisplay.classList.add('visible');
+
         clearTimeout(this.hintTimer);
         this.hintTimer = setTimeout(() => {
             this.hintDisplay.classList.add('hidden');
-        }, 8000);
+            this.hintDisplay.classList.remove('visible');
+        }, 5000); // 5秒で消えるように調整
     }
 
     onUnlock() {

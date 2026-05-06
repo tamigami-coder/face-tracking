@@ -91,10 +91,14 @@ class TextureGenerator {
     /**
      * ブラックライトで浮かび上がる隠し数字を中央に描画（Stage 2用）
      */
-    drawHiddenDigit(ctx, digit) {
+    drawHiddenDigit(ctx, digit, isRevealed = false) {
+        if (!isRevealed) return; // 通常時は一切描画しない（完全に見えない）
+        
         ctx.save();
-        // 蛍光色（黄緑）を極めて低い不透明度で描画
-        ctx.fillStyle = 'rgba(120, 255, 0, 0.05)';
+        // 見つかった後は蛍光色でハッキリと表示させる
+        ctx.fillStyle = 'rgba(120, 255, 0, 0.6)';
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#78ff00';
         ctx.font = 'bold 400px "Courier New", Courier, monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -105,49 +109,69 @@ class TextureGenerator {
     /**
      * 正面: デジタルノード（7個の点）
      */
-    generateFront() {
+    generateFront(isRevealed = false) {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.size;
         const ctx = canvas.getContext('2d');
         this.drawModernBase(ctx);
 
-        ctx.fillStyle = '#00f0ff';
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#00f0ff';
-        
-        const nodes = [
-            [300, 300], [500, 250], [700, 350], [600, 500],
-            [400, 600], [250, 450], [500, 400]
+        // ふたご座の星の座標 (6個)
+        const stars = [
+            {x: 320, y: 180}, // 左頭
+            {x: 430, y: 110}, // 右頭
+            {x: 500, y: 260}, // 首
+            {x: 630, y: 210}, // 右手
+            {x: 350, y: 480}, // 左足
+            {x: 570, y: 520}  // 右足
         ];
-        
-        // 接続線
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
-        ctx.lineWidth = 3;
+
+        // 星を結ぶ線
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(nodes[0][0], nodes[0][1]);
-        for(let i=1; i<nodes.length; i++) ctx.lineTo(nodes[i][0], nodes[i][1]);
-        ctx.closePath();
+        ctx.moveTo(stars[0].x, stars[0].y);
+        ctx.lineTo(stars[1].x, stars[1].y);
+        ctx.lineTo(stars[3].x, stars[3].y);
+        ctx.moveTo(stars[1].x, stars[1].y);
+        ctx.lineTo(stars[2].x, stars[2].y);
+        ctx.lineTo(stars[5].x, stars[5].y);
+        ctx.moveTo(stars[0].x, stars[0].y);
+        ctx.lineTo(stars[4].x, stars[4].y);
         ctx.stroke();
 
-        // ノード
-        ctx.shadowBlur = 15;
-        nodes.forEach(([x, y]) => {
+        // 星 (☆) の描画関数
+        const drawStar = (cx, cy, r, p) => {
+            ctx.save();
             ctx.beginPath();
-            ctx.arc(x, y, 10, 0, Math.PI * 2);
+            ctx.translate(cx, cy);
+            ctx.moveTo(0, 0 - r);
+            for (let i = 0; i < p; i++) {
+                ctx.rotate(Math.PI / p);
+                ctx.lineTo(0, 0 - (r * 0.45));
+                ctx.rotate(Math.PI / p);
+                ctx.lineTo(0, 0 - r);
+            }
             ctx.fill();
-        });
+            ctx.restore();
+        };
+
+        ctx.fillStyle = '#FFD700'; // 金色の星
+        stars.forEach(s => drawStar(s.x, s.y, 20, 5));
+
+        // ヒントテキスト (通常時も見せる)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = 'bold 32px "Inter", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('星の数を数えて', 950, 512);
 
         this.drawOrderMark(ctx, '①');
-        this.drawHiddenDigit(ctx, '3'); // 1桁目
-
         return canvas;
     }
 
     /**
      * 右面: デジタルアナモルフォーシス「3」
      */
-    generateRight() {
+    generateRight(isRevealed = false) {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.size;
         const ctx = canvas.getContext('2d');
@@ -176,25 +200,26 @@ class TextureGenerator {
         }
 
         this.drawOrderMark(ctx, '②');
-        this.drawHiddenDigit(ctx, '7'); // 2桁目
+        this.drawHiddenDigit(ctx, '7', isRevealed); // 2桁目
 
         return canvas;
     }
 
     /**
-     * 左面: データモザイクと「5」
+     * 左面: 幾何学模様
      */
-    generateLeft() {
+    generateLeft(isRevealed = false) {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.size;
         const ctx = canvas.getContext('2d');
         this.drawModernBase(ctx);
 
+        // 装飾としてのうっすらした「9」
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
         ctx.font = 'bold 800px "Inter", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('5', 512, 512);
+        ctx.fillText('9', 512, 512);
 
         // サイバーなピクセルモザイク
         ctx.globalCompositeOperation = 'source-atop';
@@ -209,58 +234,52 @@ class TextureGenerator {
         ctx.globalCompositeOperation = 'source-over'; // リセット
 
         this.drawOrderMark(ctx, '③');
+        this.drawHiddenDigit(ctx, '5', isRevealed);
 
         return canvas;
     }
 
     /**
-     * 上面: iPhone風 電卓
+     * 上面: サイバーサークル
      */
-    generateTop() {
+    generateTop(isRevealed = false) {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.size;
         const ctx = canvas.getContext('2d');
         this.drawModernBase(ctx);
 
-        // ボタンのレイアウト設定
         const btnRadius = 60;
         const gapX = 140;
         const gapY = 130;
-        
-        // 4列 x 5行 の配置
-        // 全体の幅: (4-1) * 140 = 420
-        // 全体の高さ: (5-1) * 130 = 520
-        // 箱の中央(512, 512)に配置するための開始座標
         const btnStartX = 512 - (420 / 2);
         const btnStartY = 512 - (520 / 2);
 
+        // 4x5レイアウト（文字は表示しないが判定用に保持）
         const layout = [
-            ['AC', '+/-', '%', '÷'],
-            ['7', '8', '9', '×'],
+            ['C', '+/-', '%', '/'],
+            ['7', '8', '9', '*'],
             ['4', '5', '6', '-'],
             ['1', '2', '3', '+'],
-            ['0', '0', '.', '='] // '0' は幅広にするためのダミー配置
+            ['0', '=', '']
         ];
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
 
         for (let row = 0; row < 5; row++) {
             for (let col = 0; col < 4; col++) {
                 const label = layout[row][col];
-                if (label === '0' && col === 1) continue; // 0の2セル目をスキップ
+                if (label === '0' && col === 1) continue; 
+                if (label === '') continue;
 
                 const cx = btnStartX + col * gapX;
                 const cy = btnStartY + row * gapY;
 
-                // ボタンの背景色
-                if (col === 3) ctx.fillStyle = '#FF9500'; // オレンジ（演算子）
-                else if (row === 0) ctx.fillStyle = '#A5A5A5'; // ライトグレー（上段）
-                else ctx.fillStyle = '#333333'; // ダークグレー（数字）
+                // ボタンの背景色（文字がない状態のベース）
+                if (col === 3) ctx.fillStyle = '#FF9500';
+                else if (row === 0) ctx.fillStyle = '#A5A5A5';
+                else ctx.fillStyle = '#333333';
 
-                // 「2」ボタンだけ特別な演出（白く光っている / ハイライト）
+                // 「2」の位置にあるボタンだけ白く光るヒント演出
                 if (label === '2') {
-                    ctx.fillStyle = '#ffffff'; // ピカッと白く光らせる
+                    ctx.fillStyle = '#ffffff'; 
                     ctx.shadowBlur = 30;
                     ctx.shadowColor = '#00f0ff';
                 } else {
@@ -269,19 +288,16 @@ class TextureGenerator {
 
                 ctx.beginPath();
                 if (label === '0') {
-                    // 0ボタンは幅広
                     ctx.roundRect(cx - btnRadius, cy - btnRadius, gapX + btnRadius * 2, btnRadius * 2, btnRadius);
                 } else {
                     ctx.arc(cx, cy, btnRadius, 0, Math.PI * 2);
                 }
                 ctx.fill();
-                ctx.shadowBlur = 0; // 他の描画用にリセット
+                ctx.shadowBlur = 0;
             }
         }
 
         this.drawOrderMark(ctx, '④');
-        this.drawHiddenDigit(ctx, '2'); // 3桁目
-
         return canvas;
     }
 
@@ -310,7 +326,7 @@ class TextureGenerator {
     /**
      * 背面 / 底面: プレーンなモダンテクスチャ
      */
-    generatePlain(hiddenDigit = null, isReverse = false) {
+    generatePlain(hiddenDigit = null, isReverse = false, isRevealed = false, orderMark = null) {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.size;
         const ctx = canvas.getContext('2d');
@@ -321,8 +337,12 @@ class TextureGenerator {
             this.drawModernBase(ctx);
         }
         
+        if (orderMark) {
+            this.drawOrderMark(ctx, orderMark);
+        }
+        
         if (hiddenDigit) {
-            this.drawHiddenDigit(ctx, hiddenDigit);
+            this.drawHiddenDigit(ctx, hiddenDigit, isRevealed);
         }
 
         return canvas;

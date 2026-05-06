@@ -9,8 +9,11 @@ class PuzzleLogic {
         this.mode = 'camera'; // 'camera' or 'mouse'
         
         this.solutions = {
-            camera: [7, 3, 5, 2],
-            mouse: [7, 3, 5, 4]
+            drawer: [6, 3, 9, 2], // 引き出しを開けるための番号
+            padlock: {
+                camera: [7, 7, 5, 9],
+                mouse: [7, 7, 5, 9]
+            }
         };
 
         this.hints = [
@@ -33,9 +36,13 @@ class PuzzleLogic {
         this.currentCode[index] = value;
     }
 
-    checkSolution() {
-        const sol = this.solutions[this.mode];
-        return this.currentCode.every((val, i) => val === sol[i]);
+    checkSolution(stage) {
+        if (stage === 1) { // STAGE.DRAWER
+            return this.currentCode.every((val, i) => val === this.solutions.drawer[i]);
+        } else { // STAGE.BLACKLIGHT
+            const sol = this.solutions.padlock[this.mode];
+            return this.currentCode.every((val, i) => val === sol[i]);
+        }
     }
 
     getNextHint() {

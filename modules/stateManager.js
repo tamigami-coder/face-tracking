@@ -9,9 +9,8 @@ const BOX_STATE = {
 };
 
 const STAGE = {
-    SHADOW: 1,      // 影パズル
-    BLACKLIGHT: 2,  // ブラックライト
-    REVERSE: 3      // 裏世界
+    DRAWER: 1,      // 最初：引き出しを開ける（ブラックライトなし）
+    BLACKLIGHT: 2   // 次：ブラックライトで探索
 };
 
 class StateManager {
@@ -21,15 +20,13 @@ class StateManager {
 
     reset() {
         // ステージ管理
-        this.currentStage = STAGE.SHADOW;
+        this.currentStage = STAGE.DRAWER;
         this.stageCleared = [false, false, false, false]; // インデックス0は未使用
-
-        // 共通状態
+        
+        // アイテム状態
+        this.hasBlacklight = false; // 最初は持っていない
         this.inputMode = 'camera'; // 'camera' | 'mouse'
         this.isGameOver = false;
-
-        // Stage 1: 影パズル
-        this.shadowMatchRate = 0;
         
         // Stage 2: ブラックライト
         this.lightPos = { x: -1, y: -1 };
@@ -50,7 +47,7 @@ class StateManager {
      * 次のステージへ進む
      */
     nextStage() {
-        if (this.currentStage < 3) {
+        if (this.currentStage < STAGE.BLACKLIGHT) {
             this.stageCleared[this.currentStage] = true;
             this.currentStage++;
             return true;
@@ -63,9 +60,8 @@ class StateManager {
      */
     getStageName() {
         switch (this.currentStage) {
-            case STAGE.SHADOW: return "影を探せ";
-            case STAGE.BLACKLIGHT: return "ブラックライト";
-            case STAGE.REVERSE: return "裏世界";
+            case STAGE.DRAWER: return "閉ざされた引き出し";
+            case STAGE.BLACKLIGHT: return "魔法のライト";
             default: return "";
         }
     }
