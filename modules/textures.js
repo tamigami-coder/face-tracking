@@ -44,6 +44,36 @@ class TextureGenerator {
     }
 
     /**
+     * 裏世界（異世界）のベース（深紫・発光ノイズ）を描画
+     */
+    drawReverseBase(ctx) {
+        const size = this.size;
+        
+        // ベースカラー（深紫）
+        ctx.fillStyle = '#1a0a2e';
+        ctx.fillRect(0, 0, size, size);
+
+        // サイバーな光の脈（青白いノイズ線）
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 30; i++) {
+            ctx.beginPath();
+            ctx.moveTo(Math.random() * size, 0);
+            ctx.lineTo(Math.random() * size, size);
+            ctx.stroke();
+        }
+
+        // 発光するエッジ
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00f0ff';
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, size - 4, size - 4);
+        ctx.shadowBlur = 0;
+    }
+
+
+    /**
      * 謎を解く順番を示すマークを右下に描画
      */
     drawOrderMark(ctx, text) {
@@ -55,6 +85,20 @@ class TextureGenerator {
         ctx.textBaseline = 'bottom';
         // ネジ穴（size-40付近）と被らないように少し内側に配置
         ctx.fillText(text, this.size - 80, this.size - 80);
+        ctx.restore();
+    }
+
+    /**
+     * ブラックライトで浮かび上がる隠し数字を中央に描画（Stage 2用）
+     */
+    drawHiddenDigit(ctx, digit) {
+        ctx.save();
+        // 蛍光色（黄緑）を極めて低い不透明度で描画
+        ctx.fillStyle = 'rgba(120, 255, 0, 0.05)';
+        ctx.font = 'bold 400px "Courier New", Courier, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(digit, this.size / 2, this.size / 2);
         ctx.restore();
     }
 
@@ -95,6 +139,7 @@ class TextureGenerator {
         });
 
         this.drawOrderMark(ctx, '①');
+        this.drawHiddenDigit(ctx, '3'); // 1桁目
 
         return canvas;
     }
@@ -131,6 +176,7 @@ class TextureGenerator {
         }
 
         this.drawOrderMark(ctx, '②');
+        this.drawHiddenDigit(ctx, '7'); // 2桁目
 
         return canvas;
     }
@@ -234,6 +280,29 @@ class TextureGenerator {
         }
 
         this.drawOrderMark(ctx, '④');
+        this.drawHiddenDigit(ctx, '2'); // 3桁目
+
+        return canvas;
+    }
+
+    /**
+     * 状態（通常/裏）に応じたテクスチャセットを一括生成
+     */
+    generateSet(isReverse = false) {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = this.size;
+        const ctx = canvas.getContext('2d');
+
+        if (isReverse) {
+            this.drawReverseBase(ctx);
+            // 裏世界用の記号などを描画
+            ctx.fillStyle = '#00f0ff';
+            ctx.font = 'bold 300px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('ᚠ', this.size / 2, this.size / 2);
+        } else {
+            this.drawModernBase(ctx);
+        }
 
         return canvas;
     }
@@ -241,11 +310,21 @@ class TextureGenerator {
     /**
      * 背面 / 底面: プレーンなモダンテクスチャ
      */
-    generatePlain() {
+    generatePlain(hiddenDigit = null, isReverse = false) {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = this.size;
         const ctx = canvas.getContext('2d');
-        this.drawModernBase(ctx);
+        
+        if (isReverse) {
+            this.drawReverseBase(ctx);
+        } else {
+            this.drawModernBase(ctx);
+        }
+        
+        if (hiddenDigit) {
+            this.drawHiddenDigit(ctx, hiddenDigit);
+        }
+
         return canvas;
     }
 }

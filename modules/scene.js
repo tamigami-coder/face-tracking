@@ -14,6 +14,11 @@ class GameScene {
         this.lid = null;
         this.base = null;
         this.padlock = null;
+        this.shadow = null; // ステージ1の影
+        
+        // v2: ブラックライト
+        this.blCanvas = document.getElementById('blacklight-canvas');
+        this.blCtx = this.blCanvas.getContext('2d');
         
         this.init();
     }
@@ -45,9 +50,55 @@ class GameScene {
         // 背景の動的なパーティクル演出を追加
         this.createBackgroundParticles();
 
+        // 床の作成（影を投影するため）
+        this.createFloor();
+
         this.scene.add(this.boxGroup);
 
         window.addEventListener('resize', () => this.onWindowResize());
+        this.onWindowResize(); // 初期サイズ設定
+    }
+
+    onWindowResize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+        
+        // ブラックライトキャンバスのサイズも同期
+        if (this.blCanvas) {
+            this.blCanvas.width = w;
+            this.blCanvas.height = h;
+        }
+    }
+
+    createFloor() {
+        const floorGeom = new THREE.PlaneGeometry(20, 20);
+        const floorMat = new THREE.MeshStandardMaterial({ 
+            color: 0xeeeeee, 
+            roughness: 0.8,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.5
+        });
+        const floor = new THREE.Mesh(floorGeom, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -1.5;
+        this.scene.add(floor);
+
+        // 影パズル用のテクスチャ付きプレーン
+        const shadowGeom = new THREE.PlaneGeometry(3, 3);
+        const shadowMat = new THREE.MeshBasicMaterial({ 
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.3,
+            depthWrite: false
+        });
+        this.shadow = new THREE.Mesh(shadowGeom, shadowMat);
+        this.shadow.rotation.x = -Math.PI / 2;
+        this.shadow.position.set(1, -1.49, -1); // 箱の斜め後ろに配置
+        this.scene.add(this.shadow);
     }
 
     createBackgroundParticles() {
@@ -165,6 +216,83 @@ class GameScene {
         this.camera.position.y = radius * Math.sin(pitch) + 1.0; // 1.5から1.0に下げて、初期状態で上面を見えなくする
         this.camera.position.z = radius * Math.cos(yaw) * Math.cos(pitch);
         this.camera.lookAt(0, 0, 0);
+    }
+
+    /**
+     * 箱のテクスチャを動的に更新する (Stage 3用)
+     */
+    updateBoxTextures(textures) {
+        if (!this.base) return;
+
+        // Base materials
+        const mats = [
+            new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.right) }),
+            new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.left) }),
+            new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.top) }),
+            new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.bottom) }),
+            new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.front) }),
+            new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.back) })
+        ];
+        this.base.material = mats;
+
+        // Lid materials
+        if (this.lid) {
+            const lidMats = [
+                new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain) }),
+                new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain) }),
+                new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.top) }),
+                new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain) }),
+                new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain) }),
+                new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain) })
+            ];
+            this.lid.material = lidMats;
+        }
+    }
+
+
+    /**
+     * ステージ1: 影の形状と透明度を一致度に合わせて更新する
+     */
+    updateShadow(rate) {
+        if (!this.shadow) return;
+
+        // 一致度が高いほど、影を濃くし、形状（スケール）を正解に近づける
+        this.shadow.material.opacity = 0.2 + (rate * 0.4);
+        
+        // 正解に近づくほど、歪みが取れて「4」の比率になるような演出（擬似）
+        const scaleX = 1.0 + (1.0 - rate) * 1.5;
+        const scaleY = 1.0 + (1.0 - rate) * 0.5;
+        this.shadow.scale.set(scaleX, scaleY, 1);
+        
+        // 回転も少し歪ませる
+        this.shadow.rotation.z = (1.0 - rate) * 0.5;
+    }
+
+    /**
+     * ステージ2: ブラックライトのエフェクトを描画
+     */
+    updateBlacklight(x, y) {
+        if (!this.blCtx) return;
+        const ctx = this.blCtx;
+        ctx.clearRect(0, 0, this.blCanvas.width, this.blCanvas.height);
+        
+        // 円形グラデーションでブラックライト（UV光）を表現
+        const grad = ctx.createRadialGradient(x, y, 20, x, y, 180);
+        grad.addColorStop(0, 'rgba(150, 0, 255, 0.5)'); // 中心は紫
+        grad.addColorStop(0.5, 'rgba(100, 0, 200, 0.2)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)'); // 外側は透明
+        
+        ctx.save();
+        // 光が当たっている部分以外をわずかに暗くする（任意）
+        // ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        // ctx.fillRect(0, 0, this.blCanvas.width, this.blCanvas.height);
+        
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, 180, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     /**

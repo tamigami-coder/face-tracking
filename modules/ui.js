@@ -4,14 +4,26 @@
  */
 
 class UIController {
-    constructor(logic) {
+    constructor(logic, state) {
         this.logic = logic;
+        this.state = state;
         
         // Screens
         this.loadingScreen = document.getElementById('loading-screen');
         this.titleScreen = document.getElementById('title-screen');
         this.gameContainer = document.getElementById('game-container');
         this.clearScreen = document.getElementById('clear-screen');
+        this.claude = new ClaudeAPI(); // New
+        
+        // v2 Elements
+        this.header = document.getElementById('game-header');
+        this.footer = document.getElementById('game-footer');
+        this.stageCountLabel = document.querySelector('.stage-count');
+        this.stageNameLabel = document.getElementById('stage-name');
+        
+        // Feedback
+        this.matchRateFill = document.getElementById('match-rate-fill');
+        this.matchRateText = document.getElementById('match-rate-text');
         
         // Elements
         this.loadingText = document.getElementById('loading-text');
@@ -42,9 +54,18 @@ class UIController {
             this.showNextHint();
         });
 
-        // リスタート
-        document.getElementById('btn-restart').addEventListener('click', () => {
-            window.location.reload();
+        // 南京錠決定ボタン
+        document.getElementById('unlock-btn').addEventListener('click', () => {
+            if (this.logic.checkSolution()) {
+                this.onUnlock();
+            } else {
+                alert("コードが正しくありません。");
+            }
+        });
+
+        // 記号決定ボタン
+        document.getElementById('symbol-submit').addEventListener('click', () => {
+            alert("記号が一致しません。"); // ステージ3実装時にロジック追加
         });
     }
 
@@ -61,6 +82,42 @@ class UIController {
     startGame() {
         this.titleScreen.classList.add('hidden');
         this.gameContainer.classList.remove('hidden');
+        this.header.classList.remove('hidden');
+        this.footer.classList.remove('hidden');
+        this.updateStageUI();
+    }
+
+    /**
+     * 現在のステージに合わせてパネルを切り替える
+     */
+    updateStageUI() {
+        this.stageCountLabel.innerText = `STAGE ${this.state.currentStage}/3`;
+        this.stageNameLabel.innerText = this.state.getStageName();
+
+        // 全パネルを一旦非表示
+        document.querySelectorAll('.input-panel').forEach(p => p.classList.add('hidden'));
+
+        // 現在のステージのパネルを表示
+        switch (this.state.currentStage) {
+            case STAGE.SHADOW:
+                document.getElementById('panel-shadow').classList.remove('hidden');
+                break;
+            case STAGE.BLACKLIGHT:
+                document.getElementById('panel-padlock').classList.remove('hidden');
+                break;
+            case STAGE.REVERSE:
+                document.getElementById('panel-symbols').classList.remove('hidden');
+                break;
+        }
+    }
+
+    /**
+     * ステージ1の一致度ゲージを更新
+     */
+    updateMatchRate(rate) {
+        const percent = Math.floor(rate * 100);
+        this.matchRateFill.style.width = `${percent}%`;
+        this.matchRateText.innerText = `${percent}%`;
     }
 
     showClear() {
@@ -81,10 +138,17 @@ class UIController {
         }
     }
 
-    showNextHint() {
-        const hint = this.logic.getNextHint();
-        this.hintText.innerText = hint;
+    async showNextHint() {
+        if (this.state.hintLoading) return;
+        this.state.hintLoading = true;
+        
+        this.hintText.innerText = "思案中...";
         this.hintDisplay.classList.remove('hidden');
+
+        const hint = await this.claude.generateHint(this.state.currentStage, this.state);
+        this.hintText.innerText = hint;
+        
+        this.state.hintLoading = false;
         
         clearTimeout(this.hintTimer);
         this.hintTimer = setTimeout(() => {

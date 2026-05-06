@@ -7,13 +7,16 @@
 
 class App {
     constructor() {
+        this.state = new StateManager();
         this.logic = new PuzzleLogic();
-        this.ui = new UIController(this.logic);
+        this.ui = new UIController(this.logic, this.state);
         this.scene = new GameScene('canvas-wrapper');
         this.textures = new TextureGenerator();
+        this.shadowPuzzle = new ShadowPuzzle(this.state);
+        this.blacklight = new BlacklightManager(this.state);
+        this.reverseWorld = new ReverseWorldManager(this.state, this.scene, this.textures);
         
         this.tracker = null;
-        this.isGameOver = false;
         
         this.init();
     }
@@ -23,7 +26,7 @@ class App {
         this.ui.updateLoading(20, "テクスチャを作成中...");
         const faceTextures = {
             front: this.textures.generateFront(),
-            back: this.textures.generatePlain(),
+            back: this.textures.generatePlain('9'), // 4桁目
             left: this.textures.generateLeft(),
             right: this.textures.generateRight(),
             top: this.textures.generateTop(),
@@ -42,6 +45,18 @@ class App {
         // ボタンイベント
         document.getElementById('btn-camera').addEventListener('click', () => this.startMode('camera'));
         document.getElementById('btn-mouse').addEventListener('click', () => this.startMode('mouse'));
+        
+        // v2 追加: リセットボタンとヒントボタン
+        document.getElementById('reset-pos-btn').addEventListener('click', () => {
+            if (this.tracker && this.tracker.resetPosition) {
+                this.tracker.resetPosition();
+                const btn = document.getElementById('reset-pos-btn');
+                btn.textContent = "✓ 完了";
+                setTimeout(() => btn.textContent = "🔄 リセット", 1500);
+            }
+        });
+        
+        document.getElementById('btn-restart').addEventListener('click', () => location.reload());
         
         // クリア時コールバック
         this.ui.onUnlockCallback = () => this.handleUnlock();
@@ -108,6 +123,17 @@ class App {
         }
     }
 
+    /**
+     * ステージを変更する
+     */
+    changeStage(stageNum) {
+        this.state.currentStage = stageNum;
+        this.ui.updateStageUI();
+        
+        // ステージ固有の初期化（必要に応じて）
+        console.log(`Stage changed to: ${this.state.getStageName()}`);
+    }
+
     handleUnlock() {
         if (this.isGameOver) return;
         this.isGameOver = true;
@@ -125,6 +151,22 @@ class App {
 
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(mouse, this.scene.camera);
+
+        // ステージ3: 裏世界への反転トリガー判定 (底面)
+        if (this.state.currentStage === STAGE.REVERSE) {
+            const intersectsBase = raycaster.intersectObject(this.scene.base);
+            if (intersectsBase.length > 0) {
+                const point = intersectsBase[0].point;
+                const index = intersectsBase[0].face.materialIndex;
+                const faceNames = ['right', 'left', 'top', 'bottom', 'front', 'back'];
+                const faceName = faceNames[index];
+                
+                if (this.reverseWorld.checkTrigger(faceName, point)) {
+                    // 反転成功
+                    return;
+                }
+            }
+        }
 
         // モダン版の引き出し（メッシュ）に対する判定
         if (this.scene.drawer) {
@@ -157,7 +199,16 @@ class App {
      * マウス移動時の処理（引き出しのホバー判定）
      */
     handleMouseMove(e) {
-        if (this.isGameOver || this.logic.mode !== 'mouse') return;
+        if (this.isGameOver) return;
+
+        // v2: ブラックライトの座標更新 (Stage 2)
+        if (this.state.currentStage === STAGE.BLACKLIGHT) {
+            this.state.lightPos = { x: e.clientX, y: e.clientY };
+            this.scene.updateBlacklight(e.clientX, e.clientY);
+            
+            // 照らされている面の判定
+            this.checkBlacklightCollision(e.clientX, e.clientY);
+        }
 
         // UIの上ではなく、Canvas（3D空間）の上でのみ判定を行う
         if (e.target.tagName.toLowerCase() === 'canvas') {
@@ -183,6 +234,30 @@ class App {
         }
     }
 
+    /**
+     * ブラックライトがどの面に当たっているか判定する
+     */
+    checkBlacklightCollision(x, y) {
+        const mouse = new THREE.Vector2();
+        mouse.x = (x / window.innerWidth) * 2 - 1;
+        mouse.y = -(y / window.innerHeight) * 2 + 1;
+
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, this.scene.camera);
+
+        const intersects = raycaster.intersectObject(this.scene.base);
+        if (intersects.length > 0) {
+            const index = intersects[0].face.materialIndex;
+            const faceNames = ['right', 'left', 'top', 'bottom', 'front', 'back'];
+            const faceName = faceNames[index];
+            
+            if (this.blacklight.revealDigit(faceName)) {
+                // 発見演出
+                console.log(`Discovered digit on ${faceName}`);
+            }
+        }
+    }
+
     animate() {
         if (this.isGameOver) {
             this.scene.render();
@@ -195,6 +270,19 @@ class App {
             if (this.logic.mode === 'mouse') this.tracker.update();
             const { yaw, pitch } = this.tracker.getAngles();
             this.scene.updateCamera(yaw, pitch);
+
+            // ステージ1: 影パズルの更新
+            if (this.state.currentStage === STAGE.SHADOW) {
+                const rate = this.shadowPuzzle.calculateMatchRate(yaw, pitch);
+                this.ui.updateMatchRate(rate);
+                this.scene.updateShadow(rate);
+
+                if (this.shadowPuzzle.isCleared) {
+                    // クリア演出（本来はもっと派手にしたいが、まずは遷移のみ）
+                    this.changeStage(STAGE.BLACKLIGHT);
+                    alert("影が正解を示した！ステージクリア。");
+                }
+            }
         }
 
         this.scene.render();

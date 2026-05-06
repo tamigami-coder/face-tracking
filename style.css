@@ -133,24 +133,185 @@ h1.title, h1.glitch {
 }
 
 #canvas-wrapper {
+    position: relative;
     width: 100%;
     height: 100%;
 }
 
-/* Padlock UI - Modernized */
-#padlock-ui {
+#blacklight-canvas {
     position: absolute;
-    bottom: 50px; /* カメラモードで上面を見る際に邪魔にならないように下部へ配置 */
-    left: 50px;   /* 画面の左下に配置 */
-    /* transform: translateX(-50%); は削除 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* マウスイベントを下のThree.jsに流す */
+    z-index: 10;
+}
+
+
+/* v2 Header */
+#game-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%);
+    z-index: 100;
+}
+
+#stage-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stage-count {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2rem;
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+#stage-name {
+    font-size: 1.5rem;
+    font-weight: 300;
+    margin: 0;
+}
+
+.header-controls {
+    display: flex;
+    gap: 15px;
+}
+
+#hint-btn, #reset-pos-btn {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--font-main);
+    backdrop-filter: blur(5px);
+    transition: all 0.3s;
+}
+
+#hint-btn:hover, #reset-pos-btn:hover {
+    background: white;
+    border-color: var(--accent-color);
+}
+
+/* v2 Footer & Input Panels */
+#game-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    z-index: 100;
+}
+
+.input-panel {
     background: var(--panel-bg);
     padding: 20px 30px;
-    border-radius: 16px;
+    border-radius: 20px;
     border: 1px solid var(--border-color);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.input-panel.hidden {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+    display: none;
+}
+
+/* Shadow Stage Progress */
+.match-rate-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    min-width: 300px;
+}
+
+.progress-bar.mini {
+    flex-grow: 1;
+    height: 6px;
+    margin: 0;
+    background: rgba(0,0,0,0.05);
+}
+
+#match-rate-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.1s linear;
+}
+
+/* Symbol Panel */
+.symbol-input-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.symbol-slots {
+    display: flex;
+    gap: 10px;
+}
+
+.slot {
+    width: 50px;
+    height: 60px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    color: var(--accent-color);
+}
+
+.symbol-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.sym-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: white;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+}
+
+.sym-btn:hover {
+    background: var(--accent-color);
+    color: white;
+}
+
+.submit-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
 
 .dial-container {
     display: flex;

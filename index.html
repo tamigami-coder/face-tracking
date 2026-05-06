@@ -41,43 +41,90 @@
 
     <!-- メインゲーム画面 -->
     <main id="game-container">
-        <button id="reset-pos-btn" class="hidden" title="顔の基準位置をリセット">🔄 リセット</button>
-        <div id="canvas-wrapper"></div>
+        <!-- v2 ヘッダー -->
+        <header id="game-header" class="hidden">
+            <div id="stage-info">
+                <span class="stage-count">STAGE 1/3</span>
+                <h2 id="stage-name">影を探せ</h2>
+            </div>
+            <div class="header-controls">
+                <button id="hint-btn" title="ヒントを表示">💡 ヒント</button>
+                <button id="reset-pos-btn" title="顔の基準位置をリセット">🔄 リセット</button>
+            </div>
+        </header>
+
+        <div id="canvas-wrapper">
+            <!-- Three.js Canvas will be injected here -->
+            <canvas id="blacklight-canvas"></canvas>
+        </div>
         
         <!-- 操作ガイド -->
         <div id="guide-overlay" class="fade-out">
             <p id="guide-message">顔を左右に動かして箱を調べよう</p>
         </div>
 
-        <!-- 南京錠UI -->
-        <div id="padlock-ui">
-            <div class="dial-container">
-                <div class="dial" data-index="0">
-                    <button class="dial-up">▲</button>
-                    <span class="dial-value">0</span>
-                    <button class="dial-down">▼</button>
-                </div>
-                <div class="dial" data-index="1">
-                    <button class="dial-up">▲</button>
-                    <span class="dial-value">0</span>
-                    <button class="dial-down">▼</button>
-                </div>
-                <div class="dial" data-index="2">
-                    <button class="dial-up">▲</button>
-                    <span class="dial-value">0</span>
-                    <button class="dial-down">▼</button>
-                </div>
-                <div class="dial" data-index="3">
-                    <button class="dial-up">▲</button>
-                    <span class="dial-value">0</span>
-                    <button class="dial-down">▼</button>
+        <!-- v2 フッター・入力パネル -->
+        <footer id="game-footer" class="hidden">
+            <!-- ステージ1: 影パズル用 (自動判定のため表示のみ) -->
+            <div id="panel-shadow" class="input-panel">
+                <div class="match-rate-container">
+                    <span>一致度:</span>
+                    <div class="progress-bar mini"><div id="match-rate-fill"></div></div>
+                    <span id="match-rate-text">0%</span>
                 </div>
             </div>
-        </div>
 
-        <!-- ヒントボタン -->
-        <button id="hint-btn">？</button>
+            <!-- ステージ2: 南京錠UI (既存の流用・拡張) -->
+            <div id="panel-padlock" class="input-panel hidden">
+                <div class="dial-container">
+                    <div class="dial" data-index="0">
+                        <button class="dial-up">▲</button>
+                        <span class="dial-value">0</span>
+                        <button class="dial-down">▼</button>
+                    </div>
+                    <div class="dial" data-index="1">
+                        <button class="dial-up">▲</button>
+                        <span class="dial-value">0</span>
+                        <button class="dial-down">▼</button>
+                    </div>
+                    <div class="dial" data-index="2">
+                        <button class="dial-up">▲</button>
+                        <span class="dial-value">0</span>
+                        <button class="dial-down">▼</button>
+                    </div>
+                    <div class="dial" data-index="3">
+                        <button class="dial-up">▲</button>
+                        <span class="dial-value">0</span>
+                        <button class="dial-down">▼</button>
+                    </div>
+                    <button id="unlock-btn" class="submit-btn">決定</button>
+                </div>
+            </div>
+
+            <!-- ステージ3: 記号選択パネル -->
+            <div id="panel-symbols" class="input-panel hidden">
+                <div class="symbol-input-area">
+                    <div class="symbol-slots">
+                        <div class="slot" data-index="0">?</div>
+                        <div class="slot" data-index="1">?</div>
+                        <div class="slot" data-index="2">?</div>
+                        <div class="slot" data-index="3">?</div>
+                    </div>
+                    <div class="symbol-buttons">
+                        <button class="sym-btn" data-sym="ᛏ">ᛏ</button>
+                        <button class="sym-btn" data-sym="ᚱ">ᚱ</button>
+                        <button class="sym-btn" data-sym="ᚠ">ᚠ</button>
+                        <button class="sym-btn" data-sym="ᚾ">ᚾ</button>
+                        <button id="symbol-submit" class="submit-btn">決定</button>
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+        <!-- ヒント表示 -->
         <div id="hint-display" class="hidden">
+            <p id="hint-text">ヒントを読み込み中...</p>
+        </div>
             <p id="hint-text"></p>
         </div>
     </main>
@@ -95,6 +142,11 @@
     <video id="input-video" style="display:none;"></video>
 
     <!-- スクリプトの読み込み（ローカル実行対応のためモジュールを個別に読み込む） -->
+    <script src="modules/stateManager.js"></script>
+    <script src="modules/shadowPuzzle.js"></script>
+    <script src="modules/blacklight.js"></script>
+    <script src="modules/reverseWorld.js"></script>
+    <script src="modules/claudeApi.js"></script>
     <script src="modules/textures.js"></script>
     <script src="modules/scene.js"></script>
     <script src="modules/faceTracker.js"></script>
