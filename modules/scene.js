@@ -159,16 +159,18 @@ class GameScene {
             right: createMat('right'),
             top: createMat('top'),
             bottom: createMat('bottom'),
-            plain: new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain), roughness: 0.8, metalness: 0.2 })
+            plain: new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.plain), roughness: 0.8, metalness: 0.2 }),
+            interior: new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(textures.interior), roughness: 0.9, metalness: 0.1 })
         };
 
         // 本体 (5面)
         const baseGeom = new THREE.BoxGeometry(2, 1.8, 2);
         // BoxGeometryのインデックス: 0:右, 1:左, 2:上, 3:下, 4:前, 5:後
+        // 上面 (2) を interior (縁のある暗闇) にすることで、蓋が開いた時に中が空洞に見えるようにする
         const baseMaterials = [
             mats.right, // +X
             mats.left,  // -X
-            mats.top,   // +Y
+            mats.interior, // +Y (パズルではなく空洞を表示)
             mats.bottom, // -Y
             mats.front, // +Z
             mats.back   // -Z

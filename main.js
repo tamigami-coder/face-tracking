@@ -30,7 +30,8 @@ class App {
             right: this.textures.generateRight(),
             top: this.textures.generateTop(),
             bottom: this.textures.generatePlain(),
-            plain: this.textures.generatePlain()
+            plain: this.textures.generatePlain(),
+            interior: this.textures.generateInterior()
         };
 
         // 空間演出用：オリオン座（背景）
@@ -62,7 +63,9 @@ class App {
 
         // ボタンイベント
         document.getElementById('btn-camera').addEventListener('click', () => this.startMode('camera'));
-        document.getElementById('btn-mouse').addEventListener('click', () => this.startMode('mouse'));
+        document.getElementById('btn-mouse').addEventListener('click', () => {
+            this.ui.showNotification("マウスモードは現在準備中です。カメラモードでお楽しみください。", "info");
+        });
         
         // v2 追加: リセットボタンとヒントボタン
         document.getElementById('reset-pos-btn').addEventListener('click', () => {

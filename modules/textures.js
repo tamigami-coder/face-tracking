@@ -347,4 +347,29 @@ class TextureGenerator {
 
         return canvas;
     }
+    /**
+     * 箱の内部（空洞）テクスチャを描画：縁を残して中を真っ黒にする
+     */
+    generateInterior() {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = this.size;
+        const ctx = canvas.getContext('2d');
+        
+        // ベースの質感を描画（縁の部分になる）
+        this.drawModernBase(ctx);
+
+        // 中央を漆黒で塗りつぶす（空洞を表現）
+        ctx.fillStyle = '#050508';
+        const padding = 60; // 縁の幅
+        ctx.fillRect(padding, padding, this.size - padding * 2, this.size - padding * 2);
+
+        // 内部にうっすらとした影（奥行き）を追加
+        const grad = ctx.createRadialGradient(512, 512, 100, 512, 512, 512);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(padding, padding, this.size - padding * 2, this.size - padding * 2);
+
+        return canvas;
+    }
 }
